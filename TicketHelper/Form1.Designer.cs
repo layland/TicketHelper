@@ -214,9 +214,25 @@
             // GrapeNumSelect
             // 
             this.GrapeNumSelect.Location = new System.Drawing.Point(197, 20);
+            this.GrapeNumSelect.Maximum = new decimal(new int[] {
+            4,
+            0,
+            0,
+            0});
+            this.GrapeNumSelect.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
             this.GrapeNumSelect.Name = "GrapeNumSelect";
             this.GrapeNumSelect.Size = new System.Drawing.Size(32, 21);
             this.GrapeNumSelect.TabIndex = 13;
+            this.GrapeNumSelect.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.GrapeNumSelect.ValueChanged += new System.EventHandler(this.GrapeNumSelect_ValueChanged);
             // 
             // label5
             // 

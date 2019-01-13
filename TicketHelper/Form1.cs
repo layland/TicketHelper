@@ -37,12 +37,13 @@ namespace TicketHelper
         private bool isColorPickerMode = false;
         private int CompleteX;
         private int CompleteY;
-        private int topLeftX;
-        private int topLeftY;
-        private int bottomRightX;
-        private int bottomRightY;
+        private int topLeftX = 0;
+        private int topLeftY = 0;
+        private int bottomRightX = Screen.PrimaryScreen.Bounds.Width;
+        private int bottomRightY = Screen.PrimaryScreen.Bounds.Height;
         private Color seatColor;
         private Pixel FoundPixel;
+        private int numGrape = 1;
 
         public Form1()
         {
@@ -264,14 +265,26 @@ namespace TicketHelper
             mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
         }
 
-        public Pixel PixelSearch(int left, int top, int right, int bottom, Color data)
+        public Pixel[] PixelSearch(int left, int top, int right, int bottom, Color data)
         {
             int width = right - left;
             int height = bottom - top;
-            Bitmap screenBitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            Bitmap screenBitmap = new Bitmap(Screen.PrimaryScreen.Bounds.Width, Screen.PrimaryScreen.Bounds.Height, PixelFormat.Format32bppArgb);
+            Pixel[] foundGrapes = new Pixel[4];
+            for (int i = 0; i < 4; i++)
+            {
+                foundGrapes[i] = new Pixel();
+            }
 
+            int grapeIndex = 0;
+            int grapeWidth = 1;
+            bool foundWidth = false;
+            int gapWidth = 1;
+            
             using (Graphics gdest = Graphics.FromImage(screenBitmap))
             {
+                
+
                 using (Graphics gsrc = Graphics.FromHwnd(IntPtr.Zero))
                 {
                     IntPtr hSrcDC = gsrc.GetHdc();
@@ -280,24 +293,75 @@ namespace TicketHelper
                     gdest.ReleaseHdc();
                     gsrc.ReleaseHdc();
 
-                    int endY = bottomRightY > 0 ? bottomRightY : height;
-                    int endX = bottomRightX > 0 ? bottomRightX : width;
-
-                    for (int i = topLeftY; i < endY; i++)
+                    for (int i = top; i < bottom; i++)
                     {
-                        for (int j = topLeftX; j < endX; j++)
+                        if (foundWidth)
+                            break;
+
+                        for (int j = left; j < right; j++)
                         {
+                            if (foundWidth)
+                                break;
+
                             Color c = screenBitmap.GetPixel(j, i);
-                            
+                             
                             if (c == data)
                             {
-                                Pixel foundpixel = new Pixel();
-                                foundpixel.x = j;
-                                foundpixel.y = i;
-                                Console.WriteLine("found pixel = " + j + ", " + i);
-                                return foundpixel;
+
+                                if (grapeWidth == 1) // grape 길이 계산
+                                {
+                                    while (screenBitmap.GetPixel(j, i) == data)
+                                    {
+                                        j++;
+                                        grapeWidth++;
+                                    }
+                                    
+                                }
+                                Color gapColor = screenBitmap.GetPixel(j + 1, i);
+                                if (gapWidth == 1)    //사이 길이 계산
+                                {
+                                    
+                                    while (j < right && screenBitmap.GetPixel(j, i) == gapColor)
+                                    {
+                                        j++;
+                                        gapWidth++;
+                                    }
+                                }
+
+                                if (grapeWidth > 1 && gapWidth > 1)
+                                {
+                                    foundWidth = true;
+                                }
+                            }                               
+                        }
+                    }
+                    int grape_i = 0;
+
+                    Console.WriteLine("grape width = " + grapeWidth + " gap width = " + gapWidth);
+                    for (int i = top; i < bottom; i++)
+                    {
+                        for (int j = left; j < right; j++)
+                        {
+                            
+                            for (grape_i = 0; grape_i < numGrape; grape_i++)
+                            {
+                                Color c = screenBitmap.GetPixel(j + grape_i * (grapeWidth + gapWidth), i);
+                                if (c != data)
+                                    break;
+
                             }
-                                
+                            
+                            if(grape_i == numGrape)
+                            {
+                                for (grape_i = 0; grape_i < numGrape; grape_i++)
+                                {
+                                    foundGrapes[grape_i].x = j + grape_i * (grapeWidth + gapWidth) + left;
+                                    foundGrapes[grape_i].y = i + top;
+                                    Console.WriteLine("Grape x = " + foundGrapes[grape_i].x + "y = " + foundGrapes[grape_i].y);
+                                }
+                                return foundGrapes;
+                            }
+
                         }
                     }
                 }
@@ -305,15 +369,13 @@ namespace TicketHelper
             return null;
         }
 
-
-
         private void GrapeEvent(object sender, EventArgs e)
         {
             int x = Cursor.Position.X;
             int y = Cursor.Position.Y;
             //Console.WriteLine("X = " + x.ToString() + " Y = " + y.ToString());
-            getColor(x, y);
-
+            string color = getColor(x, y);
+            Console.WriteLine("Grape color = " + color);
             MouseHook.MouseAction -= GrapeEvent;
         }
 
@@ -322,7 +384,8 @@ namespace TicketHelper
         {
             CompleteX = Cursor.Position.X;
             CompleteY = Cursor.Position.Y;
-
+            label_compX.Text = CompleteX.ToString();
+            label_compY.Text = CompleteY.ToString();
             MouseHook.MouseAction -= SaveCmplBtnEvent;
         }
 
@@ -340,6 +403,12 @@ namespace TicketHelper
             bottomRightY = Cursor.Position.Y;
 
             MouseHook.MouseAction -= SaveBottomRightPosEvent;
+        }
+
+        private void GrapeNumSelect_ValueChanged(object sender, EventArgs e)
+        {
+            numGrape = Int32.Parse(GrapeNumSelect.Text) + 1;
+            Console.WriteLine("numGrape changed = " + numGrape);
         }
 
         private void btnGetColor_click(object sender, EventArgs e)
@@ -361,13 +430,13 @@ namespace TicketHelper
         private void btnStartSearch_Click(object sender, EventArgs e)
         {
             MouseHook.MouseAction += new EventHandler(SaveTopLeftPosEvent);
-            MessageBox.Show("확인버튼 위치를 클릭하세요");
+            MessageBox.Show("왼쪽위 모서리버튼 위치를 클릭하세요");
         }
 
         private void btnEndSearch_Click(object sender, EventArgs e)
         {
             MouseHook.MouseAction += new EventHandler(SaveBottomRightPosEvent);
-            MessageBox.Show("확인버튼 위치를 클릭하세요");
+            MessageBox.Show("오른쪽아래 모서리버튼 위치를 클릭하세요");
         }
 
         private void btnSelect_Click(object sender, EventArgs e)
@@ -375,15 +444,22 @@ namespace TicketHelper
             int ScreenWidth = Screen.PrimaryScreen.Bounds.Width;
             int ScreenHeight = Screen.PrimaryScreen.Bounds.Height;
 
-            Pixel foundpixel = PixelSearch(0, 0, ScreenWidth - 1, ScreenHeight - 1, seatColor);
-            if (foundpixel == null)
+            
+            Pixel[] foundPixels = new Pixel[4];
+
+            foundPixels = PixelSearch(topLeftX, topLeftY, bottomRightX, bottomRightY, seatColor);
+            if (foundPixels == null)
             {
                 MessageBox.Show("좌석을 찾을수 없습니다.");
             }
             else
             {
-                Cursor.Position = new Point(foundpixel.x + 3, foundpixel.y + 3);
-                ClickMouse();
+                for (int i = 0; i < numGrape; i++)
+                {
+                    Cursor.Position = new Point(foundPixels[i].x + 3, foundPixels[i].y + 3);
+                    ClickMouse();
+                    
+                }
                 Cursor.Position = new Point(CompleteX + 3, CompleteY + 3);
                 ClickMouse();
             }
@@ -397,95 +473,6 @@ namespace TicketHelper
     {
         public int x;
         public int y;
-    }
-
-    public static class MouseHook
-
-    {
-        public static event EventHandler MouseAction = delegate { };
-
-        public static void Start()
-        {
-            _hookID = SetHook(_proc);
-
-
-        }
-        public static void stop()
-        {
-            UnhookWindowsHookEx(_hookID);
-        }
-
-        private static LowLevelMouseProc _proc = HookCallback;
-        private static IntPtr _hookID = IntPtr.Zero;
-
-        private static IntPtr SetHook(LowLevelMouseProc proc)
-        {
-            using (Process curProcess = Process.GetCurrentProcess())
-            using (ProcessModule curModule = curProcess.MainModule)
-            {
-                return SetWindowsHookEx(WH_MOUSE_LL, proc,
-                  GetModuleHandle(curModule.ModuleName), 0);
-            }
-        }
-
-        private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
-
-        private static IntPtr HookCallback(
-          int nCode, IntPtr wParam, IntPtr lParam)
-        {
-            if (nCode >= 0 && MouseMessages.WM_LBUTTONDOWN == (MouseMessages)wParam)
-            {
-                MSLLHOOKSTRUCT hookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
-                MouseAction(null, new EventArgs());
-            }
-            return CallNextHookEx(_hookID, nCode, wParam, lParam);
-        }
-
-        private const int WH_MOUSE_LL = 14;
-
-        private enum MouseMessages
-        {
-            WM_LBUTTONDOWN = 0x0201,
-            WM_LBUTTONUP = 0x0202,
-            WM_MOUSEMOVE = 0x0200,
-            WM_MOUSEWHEEL = 0x020A,
-            WM_RBUTTONDOWN = 0x0204,
-            WM_RBUTTONUP = 0x0205
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct POINT
-        {
-            public int x;
-            public int y;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MSLLHOOKSTRUCT
-        {
-            public POINT pt;
-            public uint mouseData;
-            public uint flags;
-            public uint time;
-            public IntPtr dwExtraInfo;
-        }
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr SetWindowsHookEx(int idHook,
-          LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode,
-          IntPtr wParam, IntPtr lParam);
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr GetModuleHandle(string lpModuleName);
-
-
     }
 }
 

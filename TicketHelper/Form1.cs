@@ -35,8 +35,8 @@ namespace TicketHelper
         private static System.Timers.Timer aTimer;
         delegate void SetColorCallback(Color color);
         private bool isColorPickerMode = false;
-        private int CompleteX;
-        private int CompleteY;
+        private int CompleteX = 0;
+        private int CompleteY = 0;
         private int topLeftX = 0;
         private int topLeftY = 0;
         private int bottomRightX = Screen.PrimaryScreen.Bounds.Width;
@@ -234,11 +234,20 @@ namespace TicketHelper
 
         private Color ScreenColor(int x, int y)
         {
-            Size sz = new Size(1, 1);
-            Bitmap bmp = new Bitmap(1, 1);
-            Graphics g = Graphics.FromImage(bmp);
-            g.CopyFromScreen(x, y, 0, 0, sz);
-            return bmp.GetPixel(0, 0);
+            try
+            {
+                Size sz = new Size(1, 1);
+                Bitmap bmp = new Bitmap(1, 1);
+                Graphics g = Graphics.FromImage(bmp);
+                g.CopyFromScreen(x, y, 0, 0, sz);
+                return bmp.GetPixel(0, 0);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                throw;
+            }
+
         }
 
         private void SetColor(Color color)
@@ -269,12 +278,15 @@ namespace TicketHelper
         {
             int width = right - left;
             int height = bottom - top;
-            Bitmap screenBitmap = new Bitmap(Screen.PrimaryScreen.Bounds.Width, Screen.PrimaryScreen.Bounds.Height, PixelFormat.Format32bppArgb);
+            Bitmap screenBitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
             Pixel[] foundGrapes = new Pixel[4];
             for (int i = 0; i < 4; i++)
             {
                 foundGrapes[i] = new Pixel();
             }
+            int endY = bottomRightY > 0 ? bottomRightY : height;
+            int endX = bottomRightX > 0 ? bottomRightX : width;
+
 
             int grapeIndex = 0;
             int grapeWidth = 1;
@@ -293,12 +305,13 @@ namespace TicketHelper
                     gdest.ReleaseHdc();
                     gsrc.ReleaseHdc();
 
-                    for (int i = top; i < bottom; i++)
+                    Console.WriteLine("topLeftY = " + topLeftY + " endY = " + endY + " topLeftX = " + topLeftX + " endX = " + endX);
+                    for (int i = topLeftY; i < endY; i++)
                     {
                         if (foundWidth)
                             break;
 
-                        for (int j = left; j < right; j++)
+                        for (int j = topLeftX; j < endX; j++)
                         {
                             if (foundWidth)
                                 break;
@@ -307,7 +320,7 @@ namespace TicketHelper
                              
                             if (c == data)
                             {
-
+                                
                                 if (grapeWidth == 1) // grape 길이 계산
                                 {
                                     while (screenBitmap.GetPixel(j, i) == data)
@@ -338,9 +351,9 @@ namespace TicketHelper
                     int grape_i = 0;
 
                     Console.WriteLine("grape width = " + grapeWidth + " gap width = " + gapWidth);
-                    for (int i = top; i < bottom; i++)
+                    for (int i = topLeftY; i < endY; i++)
                     {
-                        for (int j = left; j < right; j++)
+                        for (int j = topLeftX; j < endX; j++)
                         {
                             
                             for (grape_i = 0; grape_i < numGrape; grape_i++)
@@ -359,7 +372,7 @@ namespace TicketHelper
                                     foundGrapes[grape_i].y = i + top;
                                     Console.WriteLine("Grape x = " + foundGrapes[grape_i].x + "y = " + foundGrapes[grape_i].y);
                                 }
-                                return foundGrapes;
+                                return foundGrapes; 
                             }
 
                         }
@@ -375,7 +388,7 @@ namespace TicketHelper
             int y = Cursor.Position.Y;
             //Console.WriteLine("X = " + x.ToString() + " Y = " + y.ToString());
             string color = getColor(x, y);
-            Console.WriteLine("Grape color = " + color);
+            Console.WriteLine("Grape color: " + color);
             MouseHook.MouseAction -= GrapeEvent;
         }
 
@@ -447,7 +460,7 @@ namespace TicketHelper
             
             Pixel[] foundPixels = new Pixel[4];
 
-            foundPixels = PixelSearch(topLeftX, topLeftY, bottomRightX, bottomRightY, seatColor);
+            foundPixels = PixelSearch(0, 0, ScreenWidth - 1, ScreenHeight - 1, seatColor);
             if (foundPixels == null)
             {
                 MessageBox.Show("좌석을 찾을수 없습니다.");
@@ -460,8 +473,11 @@ namespace TicketHelper
                     ClickMouse();
                     
                 }
-                Cursor.Position = new Point(CompleteX + 3, CompleteY + 3);
-                ClickMouse();
+                if(CompleteX > 0 || CompleteY > 0)
+                {
+                    Cursor.Position = new Point(CompleteX + 3, CompleteY + 3);
+                    ClickMouse();
+                }
             }
         }
 
